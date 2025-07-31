@@ -1,7 +1,7 @@
 [
   {
     "task_name": "MacBook Air M1",
-    "enabled": true,
+    "enabled": false,
     "keyword": "macbook air m1",
     "max_pages": 5,
     "personal_only": true,
@@ -14,7 +14,7 @@
   },
   {
     "task_name": "DJI Mini 3 Pro",
-    "enabled": true,
+    "enabled": false,
     "keyword": "mini 3 pro",
     "max_pages": 3,
     "personal_only": true,

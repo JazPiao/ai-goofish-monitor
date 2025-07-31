@@ -128,7 +128,7 @@ def load_notification_settings():
         "WEBHOOK_CONTENT_TYPE": config.get("WEBHOOK_CONTENT_TYPE", "JSON"),
         "WEBHOOK_QUERY_PARAMETERS": config.get("WEBHOOK_QUERY_PARAMETERS", ""),
         "WEBHOOK_BODY": config.get("WEBHOOK_BODY", ""),
-        "PCURL_TO_MOBILE": config.get("PCURL_TO_MOBILE", "true").lower() == "true"
+        "PCURL_TO_MOBILE": str(config.get("PCURL_TO_MOBILE", "true")).lower() == "true"
     }
 
 
@@ -474,6 +474,7 @@ async def start_task_process(task_id: int, task_name: str):
         print(f"任务 '{task_name}' (ID: {task_id}) 已在运行中。")
         return
 
+    log_file_handle = None
     try:
         os.makedirs("logs", exist_ok=True)
         log_file_path = os.path.join("logs", "scraper.log")
@@ -493,6 +494,10 @@ async def start_task_process(task_id: int, task_name: str):
         await update_task_running_status(task_id, True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"启动任务 '{task_name}' 进程时出错: {e}")
+    finally:
+        # 确保文件句柄被关闭
+        if log_file_handle:
+            log_file_handle.close()
 
 
 async def stop_task_process(task_id: int):
@@ -906,7 +911,12 @@ if __name__ == "__main__":
     config = dotenv_values(".env")
     
     # 获取服务器端口，如果未设置则默认为 8000
-    server_port = int(config.get("SERVER_PORT", 8000))
+    server_port_str = config.get("SERVER_PORT", 8000)
+    try:
+        server_port = int(server_port_str) if server_port_str is not None else 8000
+    except ValueError:
+        print("警告: SERVER_PORT 环境变量不是有效数字，使用默认端口 8000")
+        server_port = 8000
 
     # 设置默认编码
     env = os.environ.copy()
