@@ -49,6 +49,6 @@
     "cron": null,
     "ai_prompt_base_file": "prompts/base_prompt.txt",
     "ai_prompt_criteria_file": "prompts/马里奥网球_criteria.txt",
-    "is_running": true
+    "is_running": false
   }
 ]

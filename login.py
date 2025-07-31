@@ -1,8 +1,9 @@
 import asyncio
 import os
+from typing import Optional
 from PIL import Image
 import qrcode
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Page, Frame, ElementHandle
 import pyzbar.pyzbar as pyzbar
 
 STATE_FILE = "xianyu_state.json"
@@ -33,10 +34,14 @@ async def main():
         print("已点击登录按钮，等待iframe...")
 
         try:
-            frame_element = await page.wait_for_selector(
+            frame_element: Optional[ElementHandle] = await page.wait_for_selector(
                 "#alibaba-login-box", timeout=60000
             )
+            if frame_element is None:
+                raise ValueError("未找到登录iframe")
             frame = await frame_element.content_frame()
+            if frame is None:
+                raise ValueError("无法获取iframe内容")
             print("登录iframe加载完成")
         except Exception as e:
             print(f"iframe加载失败: {e}")
@@ -47,6 +52,8 @@ async def main():
             canvas_element = await frame.wait_for_selector(
                 "#qrcode-img canvas", timeout=60000
             )
+            if canvas_element is None:
+                raise ValueError("未找到二维码canvas元素")
             print("二维码 canvas 加载完成，截图保存为 qrcode.png")
             await canvas_element.screenshot(path="qrcode.png")
         except Exception as e:
@@ -75,7 +82,7 @@ async def main():
         print("=" * 50 + "\n")
 
         loop = asyncio.get_running_loop()
-        # await loop.run_in_executor(None, input)
+        await loop.run_in_executor(None, input)
 
         print("等待登录完成...")
 
@@ -92,11 +99,11 @@ async def main():
                     sms_tip = await frame.wait_for_selector(selector, timeout=30000)
                     if sms_tip:
                         break
-                except:
+                except Exception:
                     continue
 
-            if sms_tip:
-                tip_text = await sms_tip.text_content()
+            if sms_tip is not None:
+                tip_text = await sms_tip.text_content() or ""
                 print(f"检测到提示文本: {tip_text}")
                 if "短信验证" in tip_text:
                     print("⚠️ 检测到需要短信验证码验证")
@@ -104,6 +111,8 @@ async def main():
                     get_code_button = await frame.wait_for_selector(
                         "#J_GetCode", timeout=10000
                     )
+                    if get_code_button is None:
+                        raise ValueError("未找到获取验证码按钮")
                     print("点击获取验证码按钮...")
                     await get_code_button.click()
                     print("已点击获取验证码按钮")
@@ -115,12 +124,16 @@ async def main():
                     verification_input = await frame.wait_for_selector(
                         "#J_Checkcode", timeout=10000
                     )
+                    if verification_input is None:
+                        raise ValueError("未找到验证码输入框")
                     await verification_input.fill(verification_code)
                     print(f"已输入验证码: {verification_code}")
 
                     submit_button = await frame.wait_for_selector(
                         "#btn-submit", timeout=10000
                     )
+                    if submit_button is None:
+                        raise ValueError("未找到提交按钮")
                     await submit_button.click()
                     print("已点击提交按钮")
 
@@ -129,16 +142,18 @@ async def main():
                             "button.fm-button.fm-submit.keep-login-btn.keep-login-confirm-btn.primary",
                             timeout=30000,
                         )
+                        if keep_button is None:
+                            raise ValueError("未找到保持登录按钮")
                         await keep_button.click()
                         print("✅ 检测到“保持”按钮，已点击")
-                    except Exception:
+                    except Exception as e:
                         try:
                             await page.wait_for_selector(
                                 "#alibaba-login-box", state="detached", timeout=30000
                             )
                             print("✅ 检测到iframe消失，登录完成")
-                        except Exception:
-                            print("⚠️ 登录可能未完成，请检查页面状态")
+                        except Exception as e2:
+                            print(f"⚠️ 登录可能未完成，请检查页面状态: {e2}")
             else:
                 print("未检测到短信验证提示，继续检查是否登录完成...")
 
@@ -147,16 +162,18 @@ async def main():
                         "button.fm-button.fm-submit.keep-login-btn.keep-login-confirm-btn.primary",
                         timeout=30000,
                     )
+                    if keep_button is None:
+                        raise ValueError("未找到保持登录按钮")
                     await keep_button.click()
                     print("✅ 检测到“保持”按钮，已点击")
-                except Exception:
+                except Exception as e:
                     try:
                         await page.wait_for_selector(
                             "#alibaba-login-box", state="detached", timeout=30000
                         )
                         print("✅ 检测到iframe消失，登录完成")
-                    except Exception:
-                        print("⚠️ 登录状态未确认，请手动检查页面")
+                    except Exception as e2:
+                        print(f"⚠️ 登录状态未确认，请手动检查页面: {e2}")
         except Exception as e:
             print(f"登录流程出错：{e}")
 
@@ -166,7 +183,7 @@ async def main():
         except Exception as e:
             print(f"❌ 登录状态保存失败: {e}")
 
-        # await browser.close()
+        await browser.close()
 
 
 if __name__ == "__main__":
