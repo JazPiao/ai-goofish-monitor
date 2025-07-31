@@ -22,8 +22,8 @@ async def quick_test():
         "task_name": "快速测试",
         "max_pages": 1,
         "personal_only": False,
-        "min_price": 50,
-        "max_price": 500,
+        "min_price": "50",
+        "max_price": "500",
         "ai_prompt_text": "测试",
         "delay_config": {
             "page_navigation_delay": 3,

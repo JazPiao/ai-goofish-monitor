@@ -332,17 +332,29 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                                 break
 
                             # 解析商品详情数据并更新 item_data
-                            item_do_str = await safe_get(detail_json, 'data', 'itemDO', default='{}')
-                            seller_do_str = await safe_get(detail_json, 'data', 'sellerDO', default='{}')
+                            item_do_data = await safe_get(detail_json, 'data', 'itemDO', default={})
+                            seller_do_data = await safe_get(detail_json, 'data', 'sellerDO', default={})
                             
-                            try:
-                                item_do = json.loads(item_do_str) if isinstance(item_do_str, str) and item_do_str != '{}' else item_do_str if isinstance(item_do_str, dict) else {}
-                            except json.JSONDecodeError:
+                            # 处理itemDO数据
+                            if isinstance(item_do_data, str):
+                                try:
+                                    item_do = json.loads(item_do_data) if item_do_data != '{}' else {}
+                                except json.JSONDecodeError:
+                                    item_do = {}
+                            elif isinstance(item_do_data, dict):
+                                item_do = item_do_data
+                            else:
                                 item_do = {}
                             
-                            try:
-                                seller_do = json.loads(seller_do_str) if isinstance(seller_do_str, str) and seller_do_str != '{}' else seller_do_str if isinstance(seller_do_str, dict) else {}
-                            except json.JSONDecodeError:
+                            # 处理sellerDO数据
+                            if isinstance(seller_do_data, str):
+                                try:
+                                    seller_do = json.loads(seller_do_data) if seller_do_data != '{}' else {}
+                                except json.JSONDecodeError:
+                                    seller_do = {}
+                            elif isinstance(seller_do_data, dict):
+                                seller_do = seller_do_data
+                            else:
                                 seller_do = {}
 
                             reg_days_raw = int(await safe_get(seller_do, 'userRegDay', default='0'))
@@ -354,10 +366,15 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                             zhima_credit_text = await safe_get(seller_do, 'zhimaLevelInfo', 'levelName', default='暂无')
 
                             # 2. 提取该商品的完整图片列表
-                            image_infos_str = await safe_get(item_do, 'imageInfos', default='[]')
-                            try:
-                                image_infos = json.loads(image_infos_str) if image_infos_str else []
-                            except json.JSONDecodeError:
+                            image_infos_data = await safe_get(item_do, 'imageInfos', default=[])
+                            if isinstance(image_infos_data, str):
+                                try:
+                                    image_infos = json.loads(image_infos_data) if image_infos_data else []
+                                except json.JSONDecodeError:
+                                    image_infos = []
+                            elif isinstance(image_infos_data, list):
+                                image_infos = image_infos_data
+                            else:
                                 image_infos = []
                             if image_infos:
                                 # 使用列表推导式获取所有有效的图片URL

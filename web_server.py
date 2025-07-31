@@ -343,11 +343,46 @@ async def generate_task(req: TaskGenerateRequest):
     safe_keyword = "".join(c for c in req.keyword.lower().replace(' ', '_') if c.isalnum() or c in "_-").rstrip()
     output_filename = f"prompts/{safe_keyword}_criteria.txt"
     
-    # 2. 调用 AI 生成分析标准
+    # 2. 根据关键词选择合适的参考文件
+    def select_reference_file(keyword: str) -> str:
+        """根据关键词智能选择参考文件"""
+        keyword_lower = keyword.lower()
+        
+        # 定义关键词映射
+        file_mapping = {
+            "macbook": "prompts/macbook_criteria.txt",
+            "iphone": "prompts/iphone_criteria.txt",
+            "ipad": "prompts/ipad_criteria.txt",
+            "sony": "prompts/sony_criteria.txt",
+            "camera": "prompts/camera_criteria.txt",
+            "相机": "prompts/camera_criteria.txt",
+            "手表": "prompts/watch_criteria.txt",
+            "watch": "prompts/watch_criteria.txt",
+            "耳机": "prompts/headphone_criteria.txt",
+            "headphone": "prompts/headphone_criteria.txt",
+            "键盘": "prompts/keyboard_criteria.txt",
+            "keyboard": "prompts/keyboard_criteria.txt",
+        }
+        
+        # 检查是否存在对应的专用标准文件
+        for key, file_path in file_mapping.items():
+            if key in keyword_lower and os.path.exists(file_path):
+                return file_path
+        
+        # 默认使用模板或macbook标准
+        if os.path.exists("prompts/template_criteria.txt"):
+            return "prompts/template_criteria.txt"
+        else:
+            return "prompts/macbook_criteria.txt"
+
+    reference_file = select_reference_file(req.keyword)
+    print(f"选择参考文件: {reference_file}")
+
+    # 3. 调用 AI 生成分析标准
     try:
         generated_criteria = await generate_criteria(
             user_description=req.description,
-            reference_file_path="prompts/macbook_criteria.txt" # 使用默认的macbook标准作为参考
+            reference_file_path=reference_file
         )
         if not generated_criteria:
             raise HTTPException(status_code=500, detail="AI未能生成分析标准。")
