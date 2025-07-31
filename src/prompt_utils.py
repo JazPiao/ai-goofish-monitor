@@ -2,8 +2,11 @@ import asyncio
 import json
 import os
 import sys
+from typing import Any, Dict, List
 
 import aiofiles
+
+
 
 from src.config import MODEL_NAME, client
 
@@ -58,12 +61,17 @@ async def generate_criteria(user_description: str, reference_file_path: str) -> 
 
     print("正在调用AI生成新的分析标准，请稍候...")
     try:
+        if not MODEL_NAME:
+            raise ValueError("MODEL_NAME 未配置，请在 .env 文件中设置 MODEL_NAME")
+            
         response = await client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5, # Lower temperature for more predictable structure
         )
         generated_text = response.choices[0].message.content
+        if generated_text is None:
+            raise ValueError("AI 返回的内容为空")
         print("AI已成功生成内容。")
         return generated_text.strip()
     except Exception as e:
@@ -71,7 +79,7 @@ async def generate_criteria(user_description: str, reference_file_path: str) -> 
         raise e
 
 
-async def update_config_with_new_task(new_task: dict, config_file: str = "config.json"):
+async def update_config_with_new_task(new_task: Dict[str, Any], config_file: str = "config.json") -> bool:
     """
     将一个新任务添加到指定的JSON配置文件中。
     """

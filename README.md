@@ -204,6 +204,56 @@ graph TD
     I --> C;
 ```
 
+## ⚡ 性能优化与延迟配置
+
+为了平衡反爬虫安全性和运行效率，项目支持**可配置的延迟策略**。每个任务都可以独立配置延迟参数，避免"一刀切"的长时间等待。
+
+### 延迟配置参数
+
+在 `config.json` 的每个任务中添加 `delay_config` 字段：
+
+```json
+{
+  "task_name": "示例任务",
+  "delay_config": {
+    "min_item_delay": 3,        // 商品间最小延迟(秒)
+    "max_item_delay": 8,        // 商品间最大延迟(秒)
+    "min_page_delay": 10,       // 翻页间最小延迟(秒)
+    "max_page_delay": 20,       // 翻页间最大延迟(秒)
+    "filter_click_delay": 1,    // 筛选点击后延迟(秒)
+    "filter_result_delay": 2,   // 筛选结果等待延迟(秒)
+    "detail_access_delay": 1.5  // 详情页访问前延迟(秒)
+  }
+}
+```
+
+### 推荐配置模式
+
+- **快速模式**（适合测试或低风险场景）：
+  ```json
+  {"min_item_delay": 2, "max_item_delay": 4, "min_page_delay": 5, "max_page_delay": 10}
+  ```
+
+- **标准模式**（平衡效率与安全）：
+  ```json
+  {"min_item_delay": 5, "max_item_delay": 10, "min_page_delay": 15, "max_page_delay": 25}
+  ```
+
+- **保守模式**（高价值商品或严格反爬）：
+  ```json
+  {"min_item_delay": 10, "max_item_delay": 20, "min_page_delay": 30, "max_page_delay": 60}
+  ```
+
+### 解决"总是卡住"问题
+
+如果您遇到爬虫长时间卡住的情况：
+
+1. **检查延迟配置**：使用较小的延迟值，特别是 `min_item_delay` 和 `max_item_delay`
+2. **使用调试模式**：运行 `python spider_v2.py --debug-limit 3` 只处理3个商品进行测试
+3. **关闭无头模式**：在 `.env` 中设置 `RUN_HEADLESS=false` 可以看到浏览器操作
+4. **检查网络**：确保网络连接稳定，必要时配置代理
+5. **分批处理**：减少 `max_pages` 值，避免一次处理过多页面
+
 ## 常见问题 (FAQ)
 
 这里整理了一些社区用户在 Issues 中提出的常见问题及其解答。

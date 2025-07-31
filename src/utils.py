@@ -23,12 +23,15 @@ def retry_on_failure(retries=3, delay=5):
                     return await func(*args, **kwargs)
                 except (APIStatusError, HTTPError) as e:
                     print(f"函数 {func.__name__} 第 {i + 1}/{retries} 次尝试失败，发生HTTP错误。")
-                    if hasattr(e, 'status_code'):
-                        print(f"  - 状态码 (Status Code): {e.status_code}")
-                    if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                        response_text = e.response.text
-                        print(
-                            f"  - 返回值 (Response): {response_text[:300]}{'...' if len(response_text) > 300 else ''}")
+                    status_code = getattr(e, 'status_code', None)
+                    if status_code is not None:
+                        print(f"  - 状态码 (Status Code): {status_code}")
+                    response_text = getattr(e, 'response', None)
+                    if response_text is not None:
+                        response_text = getattr(response_text, 'text', '')
+                        if response_text:
+                            print(
+                                f"  - 返回值 (Response): {response_text[:300]}{'...' if len(response_text) > 300 else ''}")
                 except json.JSONDecodeError as e:
                     print(f"函数 {func.__name__} 第 {i + 1}/{retries} 次尝试失败: JSON解析错误 - {e}")
                 except Exception as e:
@@ -44,7 +47,11 @@ def retry_on_failure(retries=3, delay=5):
     return decorator
 
 
-async def safe_get(data, *keys, default="暂无"):
+from typing import TypeVar, Any
+
+T = TypeVar('T')
+
+async def safe_get(data: Any, *keys: Any, default: T = "暂无") -> T:
     """安全获取嵌套字典值"""
     for key in keys:
         try:
@@ -92,11 +99,16 @@ async def save_to_jsonl(data_record: dict, keyword: str):
         return False
 
 
-def format_registration_days(total_days: int) -> str:
+def format_registration_days(total_days: Any) -> str:
     """
-    将总天数格式化为“X年Y个月”的字符串。
+    将总天数格式化为"X年Y个月"的字符串。
     """
-    if not isinstance(total_days, int) or total_days <= 0:
+    try:
+        total_days = int(total_days)
+    except (ValueError, TypeError):
+        return '未知'
+    
+    if total_days <= 0:
         return '未知'
 
     DAYS_IN_YEAR = 365.25

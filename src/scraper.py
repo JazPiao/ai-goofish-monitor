@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import random
+import re
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -229,11 +230,11 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
             final_response = None
             print("\nLOG: 步骤 2 - 应用筛选条件...")
             await page.click('text=新发布')
-            await random_sleep(2, 4) # 原来是 (1.5, 2.5)
+            delay_config = task_config.get('delay_config', {})
+            await random_sleep(delay_config.get('filter_click_delay', 2), delay_config.get('filter_click_delay', 2) + 1)
             async with page.expect_response(lambda r: API_URL_PATTERN in r.url, timeout=20000) as response_info:
                 await page.click('text=最新')
-                # --- 修改: 增加排序后的等待时间 ---
-                await random_sleep(4, 7) # 原来是 (3, 5)
+                await random_sleep(delay_config.get('filter_result_delay', 3), delay_config.get('filter_result_delay', 3) + 2)
             final_response = await response_info.value
 
             if personal_only:
@@ -306,8 +307,8 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                         continue
 
                     print(f"-> [页内进度 {i}/{total_items_on_page}] 发现新商品，获取详情: {item_data['商品标题'][:30]}...")
-                    # --- 修改: 访问详情页前的等待时间，模拟用户在列表页上看了一会儿 ---
-                    await random_sleep(3, 6) # 原来是 (2, 4)
+                    delay_config = task_config.get('delay_config', {})
+                    await random_sleep(delay_config.get('detail_access_delay', 2), delay_config.get('detail_access_delay', 2) + 2)
 
                     detail_page = await context.new_page()
                     try:
@@ -318,7 +319,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                         if detail_response.ok:
                             detail_json = await detail_response.json()
 
-                            ret_string = str(await safe_get(detail_json, 'ret', default=[]))
+                            ret_string = str(await safe_get(detail_json, 'ret', default='[]'))
                             if "FAIL_SYS_USER_VALIDATE" in ret_string:
                                 print("\n==================== CRITICAL BLOCK DETECTED ====================")
                                 print("检测到闲鱼反爬虫验证 (FAIL_SYS_USER_VALIDATE)，程序将终止。")
@@ -331,19 +332,33 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                                 break
 
                             # 解析商品详情数据并更新 item_data
-                            item_do = await safe_get(detail_json, 'data', 'itemDO', default={})
-                            seller_do = await safe_get(detail_json, 'data', 'sellerDO', default={})
+                            item_do_str = await safe_get(detail_json, 'data', 'itemDO', default='{}')
+                            seller_do_str = await safe_get(detail_json, 'data', 'sellerDO', default='{}')
+                            
+                            try:
+                                item_do = json.loads(item_do_str) if isinstance(item_do_str, str) and item_do_str != '{}' else item_do_str if isinstance(item_do_str, dict) else {}
+                            except json.JSONDecodeError:
+                                item_do = {}
+                            
+                            try:
+                                seller_do = json.loads(seller_do_str) if isinstance(seller_do_str, str) and seller_do_str != '{}' else seller_do_str if isinstance(seller_do_str, dict) else {}
+                            except json.JSONDecodeError:
+                                seller_do = {}
 
-                            reg_days_raw = await safe_get(seller_do, 'userRegDay', default=0)
+                            reg_days_raw = int(await safe_get(seller_do, 'userRegDay', default='0'))
                             registration_duration_text = format_registration_days(reg_days_raw)
 
                             # --- START: 新增代码块 ---
 
                             # 1. 提取卖家的芝麻信用信息
-                            zhima_credit_text = await safe_get(seller_do, 'zhimaLevelInfo', 'levelName')
+                            zhima_credit_text = await safe_get(seller_do, 'zhimaLevelInfo', 'levelName', default='暂无')
 
                             # 2. 提取该商品的完整图片列表
-                            image_infos = await safe_get(item_do, 'imageInfos', default=[])
+                            image_infos_str = await safe_get(item_do, 'imageInfos', default='[]')
+                            try:
+                                image_infos = json.loads(image_infos_str) if image_infos_str else []
+                            except json.JSONDecodeError:
+                                image_infos = []
                             if image_infos:
                                 # 使用列表推导式获取所有有效的图片URL
                                 all_image_urls = [img.get('url') for img in image_infos if img.get('url')]
@@ -354,7 +369,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                                     item_data['商品主图链接'] = all_image_urls[0]
 
                             # --- END: 新增代码块 ---
-                            item_data['“想要”人数'] = await safe_get(item_do, 'wantCnt', default=item_data.get('“想要”人数', 'NaN'))
+                            item_data['“想要”人数'] = await safe_get(item_do, 'wantCnt', default=str(item_data.get('“想要”人数', 'NaN')))
                             item_data['浏览量'] = await safe_get(item_do, 'browseCnt', default='-')
                             # ...[此处可添加更多从详情页解析出的商品信息]...
 
@@ -423,9 +438,12 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                             processed_item_count += 1
                             print(f"   -> 商品处理流程完毕。累计处理 {processed_item_count} 个新商品。")
 
-                            # --- 修改: 增加单个商品处理后的主要延迟 ---
-                            print("   [反爬] 执行一次主要的随机延迟以模拟用户浏览间隔...")
-                            await random_sleep(15, 30) # 原来是 (8, 15)，这是最重要的修改之一
+                            # --- 优化: 可配置的延迟策略 ---
+                            delay_config = task_config.get('delay_config', {})
+                            min_delay = delay_config.get('min_item_delay', 8)
+                            max_delay = delay_config.get('max_item_delay', 15)
+                            print(f"   [反爬] 执行商品间延迟 ({min_delay}-{max_delay}s)...")
+                            await random_sleep(min_delay, max_delay)
                         else:
                             print(f"   错误: 获取商品详情API响应失败，状态码: {detail_response.status}")
                             if AI_DEBUG_MODE:
@@ -445,10 +463,13 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                         # --- 修改: 增加关闭页面后的短暂整理时间 ---
                         await random_sleep(2, 4) # 原来是 (1, 2.5)
 
-                # --- 新增: 在处理完一页所有商品后，翻页前，增加一个更长的“休息”时间 ---
+                # --- 优化: 可配置的翻页延迟 ---
                 if not stop_scraping and page_num < max_pages:
-                    print(f"--- 第 {page_num} 页处理完毕，准备翻页。执行一次页面间的长时休息... ---")
-                    await random_sleep(25, 50)
+                    delay_config = task_config.get('delay_config', {})
+                    min_page_delay = delay_config.get('min_page_delay', 15)
+                    max_page_delay = delay_config.get('max_page_delay', 30)
+                    print(f"--- 第 {page_num} 页处理完毕，准备翻页。执行页面间延迟 ({min_page_delay}-{max_page_delay}s)... ---")
+                    await random_sleep(min_page_delay, max_page_delay)
 
         except PlaywrightTimeoutError as e:
             print(f"\n操作超时错误: 页面元素或网络响应未在规定时间内出现。\n{e}")
