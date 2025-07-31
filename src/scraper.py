@@ -277,15 +277,29 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                     if not await next_btn.count():
                         print("LOG: 已到达最后一页，未找到可用的“下一页”按钮，停止翻页。")
                         break
-                    try:
-                        async with page.expect_response(lambda r: API_URL_PATTERN in r.url, timeout=20000) as response_info:
-                            await next_btn.click()
-                            # --- 修改: 增加翻页后的等待时间 ---
-                            await random_sleep(5, 8) # 原来是 (1.5, 3.5)
-                        current_response = await response_info.value
-                    except PlaywrightTimeoutError:
-                        print(f"LOG: 翻页到第 {page_num} 页超时，停止翻页。")
-                        break
+                    retry_count = 0
+                    max_retries = 2
+                    current_response = None
+                    
+                    # 从配置中获取超时时间，默认为30秒
+                    delay_config = task_config.get('delay_config', {})
+                    page_timeout = delay_config.get('page_navigation_timeout', 30) * 1000  # 转换为毫秒
+                    
+                    while retry_count < max_retries and current_response is None:
+                        try:
+                            async with page.expect_response(lambda r: API_URL_PATTERN in r.url, timeout=page_timeout) as response_info:
+                                await next_btn.click()
+                                # --- 修改: 增加翻页后的等待时间 ---
+                                await random_sleep(5, 8) # 原来是 (1.5, 3.5)
+                            current_response = await response_info.value
+                        except PlaywrightTimeoutError:
+                            retry_count += 1
+                            if retry_count < max_retries:
+                                print(f"LOG: 翻页到第 {page_num} 页超时，第{retry_count}次重试...")
+                                await random_sleep(3, 5)  # 重试前等待
+                            else:
+                                print(f"LOG: 翻页到第 {page_num} 页超时，已重试{max_retries}次，停止翻页。")
+                                break
 
                 if not (current_response and current_response.ok):
                     print(f"LOG: 第 {page_num} 页响应无效，跳过。")

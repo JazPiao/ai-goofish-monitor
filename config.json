@@ -10,6 +10,16 @@
     "cron": null,
     "ai_prompt_base_file": "prompts/base_prompt.txt",
     "ai_prompt_criteria_file": "prompts/马里奥网球_criteria.txt",
-    "is_running": true
+    "is_running": true,
+    "delay_config": {
+      "min_item_delay": 8,
+      "max_item_delay": 15,
+      "min_page_delay": 5,
+      "max_page_delay": 8,
+      "filter_click_delay": 2,
+      "filter_result_delay": 3,
+      "detail_access_delay": 2,
+      "page_navigation_timeout": 30
+    }
   }
 ]
