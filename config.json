@@ -37,5 +37,18 @@
     "ai_prompt_base_file": "prompts/base_prompt.txt",
     "ai_prompt_criteria_file": "prompts/babycare_婴儿车_criteria.txt",
     "is_running": false
+  },
+  {
+    "task_name": "马里奥网球",
+    "enabled": true,
+    "keyword": "马里奥网球",
+    "max_pages": 3,
+    "personal_only": true,
+    "min_price": "80",
+    "max_price": "130",
+    "cron": null,
+    "ai_prompt_base_file": "prompts/base_prompt.txt",
+    "ai_prompt_criteria_file": "prompts/马里奥网球_criteria.txt",
+    "is_running": true
   }
 ]
