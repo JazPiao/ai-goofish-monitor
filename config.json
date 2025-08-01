@@ -1,7 +1,7 @@
 [
   {
     "task_name": "马里奥网球",
-    "enabled": true,
+    "enabled": false,
     "keyword": "马里奥网球",
     "max_pages": 3,
     "personal_only": true,
@@ -10,7 +10,7 @@
     "cron": null,
     "ai_prompt_base_file": "prompts/base_prompt.txt",
     "ai_prompt_criteria_file": "prompts/马里奥网球_criteria.txt",
-    "is_running": true,
+    "is_running": false,
     "delay_config": {
       "min_item_delay": 8,
       "max_item_delay": 15,
